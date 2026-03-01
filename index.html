@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>法網 LexGraph Pro | 專業法學講義圖解引擎</title>
+    <title>法網 LexGraph Pro | 法律考點解析引擎</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- 引入 html2canvas 實現背景高畫質算圖 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
         
@@ -26,136 +24,83 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* 隱藏背景算圖區，但不能使用 display:none，否則 html2canvas 無法截圖 */
-        #render-stage-wrapper {
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            z-index: -9999; 
-            opacity: 0; 
-            pointer-events: none;
+        /* 列印專屬樣式 */
+        @media print {
+            /* 隱藏所有非列印容器的直系子元素 */
+            body > *:not(#print-container) {
+                display: none !important;
+            }
+            
+            /* 覆蓋 Tailwind 的 hidden 類別，強制顯示列印區塊 */
+            #print-container {
+                display: block !important;
+                visibility: visible !important;
+                position: relative;
+                width: 100%;
+                padding: 0;
+            }
+            
+            /* 強制列印背景顏色，以保留標注重點的色彩 */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
         }
-
-        /* 繪圖元素的共通樣式 - 純文字講義方塊風格 */
-        .rs-node-element {
-            position: absolute;
-            z-index: 20;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transform: translate(-50%, -50%); 
-        }
-
-        /* 箭頭文字 - 放大字體、厚實白底防止重疊，加入 max-width 自動換行 */
-        .rs-edge-label, .edge-label {
-            position: absolute;
-            z-index: 30;
-            background-color: #ffffff; /* 純白底色，遮蓋下方線條 */
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 22px; /* 字體進一步放大 */
-            font-weight: 900;
-            color: #0f172a;
-            text-align: center;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: break-word;
-            max-width: 450px; /* 放寬文字過長時的換行限制 */
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-            border: 2px solid #cbd5e1;
-            transform: translate(-50%, -50%);
-        }
-
-        /* 互動版畫布的特殊樣式 - 從左上角進行精準滿版縮放 */
-        #canvas-wrapper {
-            transform-origin: top left;
-            user-select: none;
-        }
-        
-        /* 畫布範圍擴大至 2400x1200 */
-        #draw-area {
-            position: relative;
-            width: 2400px;
-            height: 1200px;
-            background-color: transparent;
-            overflow: visible;
-        }
-
-        .node-element {
-            position: absolute;
-            z-index: 20;
-            cursor: move;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transform: translate(-50%, -50%); 
-            transition: transform 0.1s ease-out;
-        }
-        
-        .node-element:hover {
-            transform: translate(-50%, -50%) scale(1.02);
-            z-index: 35;
-        }
-
-        .edge-label {
-            cursor: move;
-        }
-
-        .edge-label:hover {
-            border-color: #94a3b8;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-            z-index: 40;
-        }
-
-        * { -webkit-user-drag: none; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col overflow-x-hidden custom-scrollbar">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col overflow-x-hidden custom-scrollbar relative">
+
+    <!-- 訊息提示 (Toast) -->
+    <div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl z-50 transition-all duration-300 opacity-0 -translate-y-10 pointer-events-none flex items-center gap-3 font-bold">
+        <span id="toast-icon"></span>
+        <span id="toast-msg"></span>
+    </div>
+
+    <!-- 列印專用容器 (預設隱藏) -->
+    <div id="print-container" class="hidden"></div>
 
     <!-- Navbar -->
     <header class="bg-slate-900 text-white shadow-md py-4 px-6 flex justify-between items-center z-20 shrink-0">
         <div class="flex items-center gap-3">
-            <i class="fa-solid fa-scale-balanced text-3xl text-blue-400"></i>
+            <i class="fa-solid fa-scale-balanced text-3xl text-emerald-400"></i>
             <h1 class="text-2xl font-bold tracking-wider">法網 <span class="text-slate-300 font-normal">LexGraph Pro</span></h1>
         </div>
         <div class="text-sm bg-slate-800 py-1.5 px-4 rounded-full text-slate-200 flex items-center gap-2 border border-slate-700">
-            <i class="fa-solid fa-book-open text-blue-400"></i> 專業法學圖卡引擎
+            <i class="fa-solid fa-file-contract text-emerald-400"></i> 法律考點解析引擎
         </div>
     </header>
 
-    <!-- Main Content (上下排列佈局) -->
+    <!-- Main Content -->
     <main class="flex-1 w-full flex flex-col gap-8 py-6 md:py-10">
         
-        <!-- 區塊 1：輸入事實或考題 (寬度限制，以利閱讀) -->
-        <div class="w-full max-w-7xl mx-auto px-4 md:px-8">
+        <!-- 區塊 1：輸入事實或考題 -->
+        <div class="w-full max-w-5xl mx-auto px-4 md:px-8">
             <section id="input-section" class="w-full bg-white border border-slate-200 shadow-sm rounded-2xl p-6 md:p-8">
                 
-                <!-- 新增 API Key 區塊 (單機版專用) -->
-                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                    <label for="api-key-input" class="block text-sm font-bold text-blue-800 mb-2">
-                        <i class="fa-solid fa-key"></i> 設定 Gemini API Key (單機版必填，將自動記憶於瀏覽器)
+                <!-- API Key 區塊 -->
+                <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <label for="api-key-input" class="block text-sm font-bold text-emerald-800 mb-2">
+                        <i class="fa-solid fa-key"></i> 設定 Gemini API Key (單機版使用時必填；於平台預覽時可留空)
                     </label>
                     <div class="flex gap-2">
-                        <input type="password" id="api-key-input" class="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="請填入您的 API Key (例如：AIzaSy...)">
-                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center whitespace-nowrap transition-colors">
+                        <input type="password" id="api-key-input" class="flex-1 px-3 py-2 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" placeholder="請填入您的 API Key (例如：AIzaSy...)">
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center whitespace-nowrap transition-colors">
                             取得免費金鑰
                         </a>
                     </div>
                 </div>
 
                 <h2 class="text-xl md:text-2xl font-bold mb-4 flex items-center gap-3 text-slate-800">
-                    <i class="fa-solid fa-pen-nib text-blue-600"></i> 輸入事實或考題
+                    <i class="fa-solid fa-pen-nib text-emerald-600"></i> 輸入事實或考題
                 </h2>
-                <textarea id="legal-input" class="w-full min-h-[150px] p-4 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white resize-none text-lg leading-relaxed custom-scrollbar transition-all" placeholder="請描述您的法律問題。例如：甲為農地所有權人，與好友乙通謀虛偽意思表示，將農地假贈與乙，實為買賣。同時，該農地原本即設定典權給丙。丙發現甲乙間的真買賣後，欲行使優先購買權。丙的請求是否有理由？"></textarea>
+                <textarea id="legal-input" class="w-full min-h-[150px] p-4 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white resize-none text-lg leading-relaxed custom-scrollbar transition-all" placeholder="請描述您的法律問題。例如：甲為農地所有權人，與好友乙通謀虛偽意思表示，將農地假贈與乙，實為買賣..."></textarea>
                 
                 <div class="mt-5 flex flex-col sm:flex-row gap-4">
-                    <button id="btn-generate" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-3 text-lg tracking-wide">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> 渲染滿版大圖解
+                    <button id="btn-generate" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-3 text-lg tracking-wide">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> 萃取考點並生成解析
                     </button>
                     <button id="btn-example" class="sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 px-6 rounded-xl transition-colors border border-slate-200 flex items-center justify-center gap-2 font-medium text-lg" title="載入範例">
-                        <i class="fa-solid fa-lightbulb text-amber-500"></i> 載入複雜範例
+                        <i class="fa-solid fa-lightbulb text-amber-500"></i> 載入範例
                     </button>
                 </div>
 
@@ -163,131 +108,74 @@
                 <div id="status-container" class="hidden mt-4 p-4 bg-red-50 text-red-600 border border-red-200 rounded-lg text-base font-medium">
                     <i class="fa-solid fa-circle-exclamation mr-2"></i> <span id="status-text">發生錯誤</span>
                 </div>
-                
-                <div class="mt-4 text-sm text-slate-500 text-center leading-relaxed">
-                    系統內建「自動防重疊演算法」，且圖表範圍將自動放大至全螢幕完美滿版顯示。
-                </div>
             </section>
         </div>
 
         <!-- 狀態區：等待與載入中 -->
-        <div class="w-full max-w-7xl mx-auto px-4 md:px-8">
+        <div class="w-full max-w-5xl mx-auto px-4 md:px-8">
             <section id="status-section" class="flex flex-col items-center justify-center py-6">
                 <!-- Empty State -->
                 <div id="empty-state" class="flex flex-col items-center text-slate-400 transition-opacity duration-300">
-                    <i class="fa-solid fa-file-contract text-7xl mb-6 text-slate-300 drop-shadow-sm"></i>
-                    <h3 class="text-2xl font-bold text-slate-500">尚無解析結果</h3>
-                    <p class="text-lg mt-3 text-slate-400 max-w-lg text-center leading-relaxed">請在上方輸入事實並點擊生成。系統將繪製滿版大字體的清晰關係圖，並提供詳細文字解析。</p>
+                    <i class="fa-solid fa-map-location-dot text-7xl mb-6 text-slate-300 drop-shadow-sm"></i>
+                    <h3 class="text-2xl font-bold text-slate-500">尚無分析結果</h3>
+                    <p class="text-lg mt-3 text-slate-400 max-w-lg text-center leading-relaxed">請在上方輸入考題並點擊生成。系統將提供重點文字解析與結論。</p>
                 </div>
 
                 <!-- Loading State -->
                 <div id="loading-indicator" class="hidden flex flex-col items-center bg-slate-50/90 backdrop-blur-sm p-10 rounded-2xl w-full">
-                    <div class="loader border-4 border-slate-300 border-t-blue-600 rounded-full w-16 h-16 mb-6"></div>
-                    <h3 id="loading-text" class="text-2xl font-bold text-slate-800 tracking-wide">AI 正在深度解析案情...</h3>
-                    <p class="text-lg mt-3 text-slate-600 animate-pulse">配置純文字方塊、計算滿版座標中</p>
+                    <div class="loader border-4 border-slate-300 border-t-emerald-600 rounded-full w-16 h-16 mb-6"></div>
+                    <h3 id="loading-text" class="text-2xl font-bold text-slate-800 tracking-wide">AI 正在深度拆解考點...</h3>
+                    <p class="text-lg mt-3 text-slate-600 animate-pulse">正在生成文字解析中</p>
                 </div>
             </section>
         </div>
 
-        <!-- 區塊 2 & 3：結果展示區 (圖表滿版 + 文字居中) -->
-        <section id="result-section" class="hidden flex-col gap-10 pb-12 w-full">
+        <!-- 結果展示區 (文字) -->
+        <section id="result-section" class="hidden flex-col gap-8 pb-12 w-full max-w-5xl mx-auto px-4 md:px-8">
             
-            <!-- 法律關係圖 (全寬圖片區塊，徹底取消 max-width) -->
-            <div class="w-full px-2 md:px-6"> 
-                <div class="w-full flex flex-col bg-white shadow-xl border border-slate-300 rounded-2xl overflow-hidden">
-                    <!-- 標題與操作列 -->
-                    <div class="w-full flex justify-between items-center bg-slate-100 border-b border-slate-200 px-6 py-4 z-20 relative">
-                        <span class="text-slate-700 font-bold text-xl flex items-center gap-2">
-                            <i class="fa-solid fa-expand text-blue-600"></i> 滿版法律關係圖 (可拖曳文字微調)
-                        </span>
-                        <button id="btn-download" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg shadow font-bold flex items-center gap-2 transition-transform transform hover:scale-105 border border-indigo-500">
-                            <i class="fa-solid fa-download"></i> 儲存高清圖片
+            <!-- 法律解析與結論 (文字區塊) -->
+            <div class="w-full flex flex-col gap-6">
+                
+                <!-- 標題與操作按鈕列 -->
+                <div class="w-full px-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-copy text-emerald-600 text-2xl"></i>
+                        <span class="text-slate-700 font-bold text-2xl">爭點解析與涵攝</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="btn-copy" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105 border border-blue-500">
+                            <i class="fa-solid fa-clipboard"></i> 複製 (含格式)
+                        </button>
+                        <button id="btn-print" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-lg shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105 border border-slate-700">
+                            <i class="fa-solid fa-print"></i> 列印報告
                         </button>
                     </div>
-                    
-                    <!-- 互動式畫布顯示區 (高度由 JavaScript 精準控制) -->
-                    <div id="measure-container" class="relative bg-[#e2e8f0] w-full overflow-hidden">
-                        <!-- 絕對定位的 Canvas，原尺寸 2400x1200，透過 JS 縮放至滿版 -->
-                        <div id="canvas-wrapper" class="absolute top-0 left-0 bg-white flex flex-col shrink-0 overflow-hidden w-[2400px] min-h-[1200px]">
-                            <div class="w-full h-3 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shrink-0"></div>
-                            <div class="w-full flex-1 flex flex-col bg-white bg-[radial-gradient(#f1f5f9_2px,transparent_2px)] [background-size:32px_32px]">
-                                <!-- 標題 -->
-                                <div class="px-12 pt-14 pb-6 text-center shrink-0">
-                                    <h2 id="ui-title" class="text-[48px] font-black text-slate-900 tracking-wide leading-snug"></h2>
-                                </div>
-                                <!-- 關聯圖繪製區 -->
-                                <div id="draw-area">
-                                    <!-- SVG Lines and HTML Nodes will be injected here -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 法律解析與結論 (文字區塊，恢復限制寬度以利舒適閱讀) -->
-            <div class="w-full max-w-7xl mx-auto px-4 md:px-8 flex flex-col gap-6">
-                <div class="w-full px-2 flex items-center gap-2">
-                    <i class="fa-solid fa-copy text-blue-600 text-2xl"></i>
-                    <span class="text-slate-700 font-bold text-2xl">法律解析與結論</span>
-                    <span class="text-slate-400 text-sm ml-2">(可直接選取複製)</span>
                 </div>
 
                 <!-- 關鍵法律爭點 (Copyable Text) -->
-                <div class="border-l-[8px] border-blue-500 bg-white p-8 md:p-10 rounded-r-2xl shadow-sm border-y border-r border-slate-200 w-full relative text-left">
-                    <h3 id="ui-issue-title" class="text-2xl md:text-[28px] font-black text-blue-900 mb-5 border-b-[3px] border-slate-100 pb-4 tracking-wide"></h3>
-                    <div id="ui-issue-text" class="text-slate-800 font-medium leading-loose text-lg md:text-[22px] whitespace-pre-wrap selection:bg-blue-200"></div>
+                <div class="border-l-[8px] border-emerald-500 bg-white p-6 md:p-10 rounded-r-2xl shadow-md border-y border-r border-slate-200 w-full relative text-left">
+                    <h3 id="ui-issue-title" class="text-xl md:text-[28px] font-black text-emerald-900 mb-5 border-b-[3px] border-slate-100 pb-4 tracking-wide"></h3>
+                    <div id="ui-issue-text" class="text-slate-800 font-medium leading-loose text-base md:text-[20px] whitespace-pre-wrap selection:bg-emerald-200"></div>
                 </div>
 
                 <!-- 最終結論 (Copyable Text) -->
-                <div class="border-[4px] border-slate-800 rounded-2xl bg-white p-8 md:p-10 shadow-md w-full relative mt-4">
-                    <div class="absolute -top-5 left-8 bg-slate-800 text-white px-6 py-1.5 rounded-full text-lg font-bold tracking-widest shadow-md">最終結論與救濟</div>
-                    <div id="ui-conclusion" class="text-xl md:text-[24px] font-black text-slate-900 leading-loose whitespace-pre-wrap mt-3 selection:bg-blue-200 text-center"></div>
+                <div class="border-[4px] border-slate-800 rounded-2xl bg-white p-6 md:p-10 shadow-md w-full relative mt-2">
+                    <div class="absolute -top-5 left-8 bg-slate-800 text-white px-6 py-1.5 rounded-full text-base font-bold tracking-widest shadow-md">最終結論</div>
+                    <div id="ui-conclusion" class="text-lg md:text-[22px] font-black text-slate-900 leading-loose whitespace-pre-wrap mt-3 selection:bg-emerald-200 text-center"></div>
                 </div>
             </div>
             
         </section>
     </main>
 
-    <!-- HIDDEN RENDER STAGE (背景算圖用，包含標題與圖表，擴充至超大尺寸) -->
-    <div id="render-stage-wrapper">
-        <div id="render-stage" class="flex flex-col bg-white overflow-hidden rounded-xl" style="width: 2400px; height: 1350px; font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;">
-            
-            <!-- 頂部裝飾條 -->
-            <div class="w-full h-5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shrink-0"></div>
-
-            <!-- 標題 -->
-            <div class="px-16 pt-16 pb-6 text-center shrink-0">
-                <h2 id="rs-title" class="text-[54px] font-black text-slate-900 tracking-wide leading-snug"></h2>
-            </div>
-            
-            <!-- 關聯圖繪製區 (佔滿剩餘空間) -->
-            <div id="rs-diagram" class="relative flex-1 w-full bg-[radial-gradient(#f1f5f9_2px,transparent_2px)] [background-size:32px_32px]">
-                <!-- SVG 線條與 HTML 節點將被注入至此 -->
-            </div>
-            
-            <!-- 圖例 (嵌在圖片右下角) -->
-            <div class="absolute bottom-10 right-10 bg-white/95 p-6 rounded-2xl border-4 border-slate-200 text-[22px] text-slate-800 shadow-xl font-bold">
-                <div class="mb-4 text-[26px] text-black">圖例說明：</div>
-                <div class="flex items-center gap-4 mb-3"><div class="w-8 h-2 bg-[#000000] rounded"></div> 既有/客觀事實</div>
-                <div class="flex items-center gap-4 mb-3"><div class="w-8 h-2 border-t-[8px] border-dashed border-[#dc2626]"></div> 虛偽/無效行為</div>
-                <div class="flex items-center gap-4 mb-3"><div class="w-8 h-2 bg-[#2563eb] rounded"></div> 隱藏/有效行為</div>
-                <div class="flex items-center gap-4"><div class="w-8 h-2 bg-[#ea580c] rounded"></div> 權利主張/救濟</div>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // Graph State
-        let graphNodes = [];
-        let graphEdges = [];
-
         // DOM Elements
         const apiKeyInput = document.getElementById('api-key-input');
         const legalInput = document.getElementById('legal-input');
         const btnGenerate = document.getElementById('btn-generate');
         const btnExample = document.getElementById('btn-example');
-        const btnDownload = document.getElementById('btn-download');
+        const btnCopy = document.getElementById('btn-copy');
+        const btnPrint = document.getElementById('btn-print');
         
         const loadingIndicator = document.getElementById('loading-indicator');
         const loadingText = document.getElementById('loading-text');
@@ -295,22 +183,31 @@
         const statusSection = document.getElementById('status-section');
         const resultSection = document.getElementById('result-section');
         
-        const measureContainer = document.getElementById('measure-container');
-        const canvasWrapper = document.getElementById('canvas-wrapper');
-        const drawArea = document.getElementById('draw-area');
         const statusContainer = document.getElementById('status-container');
         const statusText = document.getElementById('status-text');
 
-        // UI Text Elements (Copyable text in the browser)
-        const uiTitle = document.getElementById('ui-title');
+        // UI Text Elements
         const uiIssueTitle = document.getElementById('ui-issue-title');
         const uiIssueText = document.getElementById('ui-issue-text');
         const uiConclusion = document.getElementById('ui-conclusion');
 
-        // Render Stage Elements (Hidden, for html2canvas)
-        const renderStage = document.getElementById('render-stage');
-        const rsTitle = document.getElementById('rs-title');
-        const rsDiagram = document.getElementById('rs-diagram');
+        // Toast Function
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+            
+            toastMsg.textContent = msg;
+            toastIcon.innerHTML = isError ? '<i class="fa-solid fa-circle-exclamation text-red-400"></i>' : '<i class="fa-solid fa-circle-check text-green-400"></i>';
+            
+            toast.classList.remove('opacity-0', '-translate-y-10', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', '-translate-y-10', 'pointer-events-none');
+            }, 3000);
+        }
 
         // Example Scenarios
         const examples = [
@@ -320,7 +217,6 @@
         ];
         let currentExampleIdx = 0;
 
-        // 頁面載入時，自動讀取之前儲存的 API Key
         window.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('lexgraph_api_key');
             if (savedKey) {
@@ -346,65 +242,25 @@
 
         function formatHighlight(text) {
             if(!text) return "";
-            return text.replace(/【(.*?)】/g, '<span class="text-[#dc2626] font-extrabold text-[1.15em]">【$1】</span>');
+            // 將 【】 改為行內樣式，確保複製到外部軟體時保留紅字與粗體格式
+            let formatted = text.replace(/【(.*?)】/g, '<span style="color: #dc2626; font-weight: bold; font-size: 1.15em;">【$1】</span>');
+            // 將 Markdown 的 **粗體** 也轉為行內樣式
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: bold;">$1</strong>');
+            return formatted;
         }
 
-        // ==========================================
-        // 核心縮放引擎：精準滿版自適應
-        // ==========================================
-        function scaleDiagram() {
-            if (resultSection.classList.contains('hidden')) return;
+        async function fetchAnalysis(text, apiKey) {
+            const isCanvasInternal = !apiKey;
+            const textModel = isCanvasInternal ? "gemini-2.5-flash-preview-09-2025" : "gemini-2.5-flash";
+            const textApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${textModel}:generateContent?key=${apiKey}`;
             
-            // 取得父容器的精準寬度（即螢幕或圖框提供的最大寬度）
-            const wrapWidth = measureContainer.clientWidth; 
-            const diagWidth = 2400; // 原始固定寬度
+            const systemPrompt = `你是一位專業的台灣民法學者。請分析使用者的法律事實。
+請輸出 JSON 格式，包含以下欄位：
+- issue_title: 爭點標題 (如「【關鍵爭點：丙得否主張權利？】」)
+- issue_analysis: 爭點涵攝與詳細分析，重要考點字眼請用【】包裝。
+- conclusion: 最終結論，結論字眼用【】包裝。`;
 
-            // 放開比例限制，強制放大或縮小以完全貼齊容器 100% 寬度
-            const scale = wrapWidth / diagWidth; 
-            canvasWrapper.style.transform = `scale(${scale})`;
-            
-            // 依照縮放比例，動態調整父容器高度，避免絕對定位導致的高度塌陷
-            const scaledHeight = canvasWrapper.offsetHeight * scale;
-            measureContainer.style.height = `${scaledHeight}px`;
-        }
-        
-        // 當視窗大小改變時，即時重新計算滿版縮放
-        window.addEventListener('resize', scaleDiagram);
-
-        async function fetchLegalAnalysis(text, apiKey) {
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-            const systemPrompt = `你是一位專業的台灣民法學者與律師。
-請分析使用者提供的法律事實，並將其拆解為「純文字大字體法律關係圖解格式」。
-請務必「清楚明瞭地表示出法律關係，絕對不要簡化」。包含表面行為、隱藏行為、相關權利、法條等皆需詳細標示在箭頭上。
-
-這是一個 2400x1200 的超大滿版背景畫布。請為每個節點提供絕對座標 (X,Y 為節點中心點)。
-標準佈局建議 (畫布寬2400,高1200，中心約為1200,600)：
-- 左方當事人 (如原告/出賣人)：x: 400, y: 300
-- 右方當事人 (如被告/買受人)：x: 2000, y: 300
-- 中間標的物 (如A地/房屋)：x: 1200, y: 700
-- 第三方權利人 (如丙)：x: 400, y: 900
-請依案情自行微調，使畫面極致平衡且不擁擠！
-
-資料結構要求：
-1. nodes (節點):
-   - type: "party" (當事人), "object" (標的物), "shield" (爭點/概念)
-   - name: 主名稱 (如 "甲", "A地")
-   - role: 括號內的身分 (如 "(農地所有權人/出賣人)")。請注意，本版本不需要提供 Emoji。
-   - x, y: 數字座標
-2. edges (關聯/箭頭):
-   - color: 依性質選擇顏色。一般事實="#000000", 無效/表面行為="#dc2626"(紅), 有效/隱藏行為="#2563eb"(藍), 權利主張="#ea580c"(橘)
-   - dashed: true (無效/假裝/表面行為) 或 false (實線，有效行為)
-   - curve: 單一線條給 0 即可，系統會自動處理多線條防重疊。
-   - label: 顯示在線上的文字，務必詳細且包含換行\\n及法條，例如「1. 表面行為：贈與契約 (假贈與)\\n❌【無效 §87 I】」
-3. Text Fields:
-   - title: 圖表主標題 (如「本案法律關係圖：假贈與真買賣與典權人優先購買權之衝突」)
-   - issue_title: 爭點標題 (如「【關鍵權利與爭點】」)
-   - issue_analysis: 詳細分析，重要字眼請用【】包裝。
-   - conclusion: 最終結論，結論字眼用【】包裝。
-
-強制輸出格式：必須完全符合 JSON Schema，純粹輸出 JSON。`;
-
-            const payload = {
+            const textPayload = {
                 contents: [{ parts: [{ text: text }] }],
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 generationConfig: {
@@ -412,355 +268,64 @@
                     responseSchema: {
                         type: "OBJECT",
                         properties: {
-                            title: { type: "STRING" },
-                            nodes: {
-                                type: "ARRAY",
-                                items: {
-                                    type: "OBJECT",
-                                    properties: {
-                                        id: { type: "STRING" },
-                                        name: { type: "STRING" },
-                                        role: { type: "STRING" },
-                                        type: { type: "STRING" },
-                                        x: { type: "NUMBER" },
-                                        y: { type: "NUMBER" }
-                                    },
-                                    required: ["id", "name", "role", "type", "x", "y"]
-                                }
-                            },
-                            edges: {
-                                type: "ARRAY",
-                                items: {
-                                    type: "OBJECT",
-                                    properties: {
-                                        id: { type: "STRING" },
-                                        from: { type: "STRING" },
-                                        to: { type: "STRING" },
-                                        label: { type: "STRING" },
-                                        color: { type: "STRING" },
-                                        dashed: { type: "BOOLEAN" },
-                                        curve: { type: "NUMBER" }
-                                    },
-                                    required: ["id", "from", "to", "label", "color", "dashed", "curve"]
-                                }
-                            },
                             issue_title: { type: "STRING" },
                             issue_analysis: { type: "STRING" },
                             conclusion: { type: "STRING" }
                         },
-                        required: ["title", "nodes", "edges", "issue_title", "issue_analysis", "conclusion"]
+                        required: ["issue_title", "issue_analysis", "conclusion"]
                     }
                 }
             };
 
-            const maxRetries = 5;
-            const delays = [1000, 2000, 4000, 8000, 16000];
+            let textData = null;
+            const maxRetries = 3;
+            const delays = [1000, 2000, 4000];
 
             for (let i = 0; i < maxRetries; i++) {
                 try {
-                    const response = await fetch(API_URL, {
+                    const response = await fetch(textApiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify(textPayload)
                     });
-
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
+                    if (!response.ok) {
+                        const errDetails = await response.text();
+                        console.error("Text API Error:", errDetails);
+                        throw new Error(`文字 API 錯誤狀態碼: ${response.status}`);
+                    }
                     const result = await response.json();
-                    if (!result.candidates || result.candidates.length === 0) throw new Error("無效的 API 回應格式");
-                    
-                    const textResponse = result.candidates[0].content.parts[0].text;
-                    return JSON.parse(textResponse);
-                    
+                    if (!result.candidates || result.candidates.length === 0) throw new Error("無效的 API 回應");
+                    textData = JSON.parse(result.candidates[0].content.parts[0].text);
+                    break;
                 } catch (error) {
                     if (i === maxRetries - 1) throw error;
                     await delay(delays[i]);
                 }
             }
+
+            if (!textData) throw new Error("無法取得文字解析。");
+
+            return textData;
         }
 
         // ==========================================
-        // 取得節點邊界輔助函數，動態計算防裁切邊界
+        // 核心功能：呼叫 AI 分析
         // ==========================================
-        function getNodeRadius(node) {
-            if (!node) return 130;
-            // 護盾較小，一般方塊較大
-            if (node.type === 'shield') return 110;
-            return 170; // 加大半徑以確保線條停在方塊外部邊緣
-        }
-
-        // 繪製畫布共用邏輯 (Interactive UI or Hidden Render Stage)
-        function renderGraphToTarget(targetArea, svgLayerId, isInteractive) {
-            targetArea.innerHTML = ''; // Clear
-
-            const svgns = "http://www.w3.org/2000/svg";
-            const svg = document.createElementNS(svgns, "svg");
-            svg.setAttribute("class", "absolute inset-0 w-full h-full z-10 pointer-events-none");
-            svg.setAttribute("id", svgLayerId);
-            
-            const defs = document.createElementNS(svgns, "defs");
-            
-            // 動態從邊緣資料擷取所有顏色，自動生成箭頭標記
-            const edgeColors = [...new Set(graphEdges.map(e => e.color || '#000000'))];
-            edgeColors.forEach(color => {
-                const safeColorId = color.replace(/[^a-zA-Z0-9]/g, '');
-                const id = `arrow-${svgLayerId}-${safeColorId}`;
-                const marker = document.createElementNS(svgns, "marker");
-                marker.setAttribute("id", id);
-                marker.setAttribute("viewBox", "0 0 10 10");
-                marker.setAttribute("refX", "9"); // 調整箭頭尖端貼齊位置
-                marker.setAttribute("refY", "5");
-                marker.setAttribute("markerWidth", "5"); 
-                marker.setAttribute("markerHeight", "5");
-                marker.setAttribute("orient", "auto");
-                
-                const path = document.createElementNS(svgns, "path");
-                path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
-                path.setAttribute("fill", color);
-                
-                marker.appendChild(path);
-                defs.appendChild(marker);
-            });
-            svg.appendChild(defs);
-            targetArea.appendChild(svg);
-
-            // Render Nodes
-            graphNodes.forEach(n => {
-                const el = document.createElement('div');
-                el.id = isInteractive ? `node-${n.id}` : `rs-node-${n.id}`;
-                el.className = isInteractive ? "node-element" : "rs-node-element";
-                el.style.left = n.x + 'px';
-                el.style.top = n.y + 'px';
-                
-                if (n.type === 'party') {
-                    el.innerHTML = `
-                        <div class="bg-white border-[5px] border-[#1e293b] px-12 py-6 rounded-2xl shadow-xl text-center min-w-[300px]">
-                            <div class="text-[36px] font-black text-[#0f172a]">${n.name}</div>
-                            <div class="text-[24px] font-bold text-[#334155] mt-3">${n.role}</div>
-                        </div>`;
-                } else if (n.type === 'object') {
-                    el.innerHTML = `
-                        <div class="bg-[#f8fafc] border-[5px] border-[#475569] px-12 py-6 rounded-2xl shadow-xl text-center min-w-[300px]">
-                            <div class="text-[36px] font-black text-[#0f172a]">${n.name}</div>
-                            <div class="text-[24px] font-bold text-[#475569] mt-3">${n.role}</div>
-                        </div>`;
-                } else if (n.type === 'shield') {
-                    el.innerHTML = `
-                        <div class="bg-[#fef2f2] border-[5px] border-[#ef4444] px-10 py-5 rounded-3xl shadow-xl text-center min-w-[180px]">
-                            <div class="text-[32px] font-black text-[#b91c1c]">${n.name}</div>
-                        </div>`;
-                }
-
-                targetArea.appendChild(el);
-                if (isInteractive) makeDraggable(el, n, 'node');
-            });
-
-            // Render Edges
-            graphEdges.forEach(edge => {
-                const n1 = graphNodes.find(n => n.id === edge.from);
-                const n2 = graphNodes.find(n => n.id === edge.to);
-                if(!n1 || !n2) return;
-
-                const x1 = n1.x; const y1 = n1.y;
-                const x2 = n2.x; const y2 = n2.y;
-
-                const midX = (x1 + x2) / 2;
-                const midY = (y1 + y2) / 2;
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const len = Math.sqrt(dx*dx + dy*dy) || 1;
-                
-                const curveOffset = edge.curve || 0;
-                const nx = -dy / len;
-                const ny = dx / len;
-                
-                const cx = midX + nx * curveOffset;
-                const cy = midY + ny * curveOffset;
-
-                // 矩形邊界防覆蓋演算法 (Bounding Box Intersection Approximation)
-                const HW2 = getNodeRadius(n2);
-                const HH2 = 75; // 高度的一半
-                const dx2 = x2 - cx;
-                const dy2 = y2 - cy;
-                let scale2 = Math.min(HW2 / (Math.abs(dx2) || 1), HH2 / (Math.abs(dy2) || 1));
-                if (scale2 > 1) scale2 = 1;
-                const finalX2 = x2 - dx2 * scale2;
-                const finalY2 = y2 - dy2 * scale2;
-
-                const HW1 = getNodeRadius(n1);
-                const HH1 = 75;
-                const dx1 = x1 - cx;
-                const dy1 = y1 - cy;
-                let scale1 = Math.min(HW1 / (Math.abs(dx1) || 1), HH1 / (Math.abs(dy1) || 1));
-                if (scale1 > 1) scale1 = 1;
-                const finalX1 = x1 - dx1 * scale1;
-                const finalY1 = y1 - dy1 * scale1;
-
-                const path = document.createElementNS(svgns, "path");
-                path.setAttribute("id", isInteractive ? `line-${edge.id}` : `rs-line-${edge.id}`);
-                path.setAttribute("d", `M ${finalX1} ${finalY1} Q ${cx} ${cy} ${finalX2} ${finalY2}`);
-                path.setAttribute("stroke", edge.color || "#000000");
-                path.setAttribute("stroke-width", edge.dashed ? "5" : "8"); // Thicker lines
-                path.setAttribute("fill", "transparent");
-                if(edge.dashed) path.setAttribute("stroke-dasharray", "16, 12");
-                
-                const safeColorId = (edge.color || '#000000').replace(/[^a-zA-Z0-9]/g, '');
-                path.setAttribute("marker-end", `url(#arrow-${svgLayerId}-${safeColorId})`);
-                svg.appendChild(path);
-
-                if (edge.label) {
-                    const labelX = 0.25 * finalX1 + 0.5 * cx + 0.25 * finalX2;
-                    const labelY = 0.25 * finalY1 + 0.5 * cy + 0.25 * finalY2;
-
-                    const labelDiv = document.createElement('div');
-                    
-                    if (isInteractive) {
-                        labelDiv.id = `label-${edge.id}`;
-                        labelDiv.className = "edge-label";
-                        labelDiv.style.left = (labelX + (edge.offsetX || 0)) + 'px';
-                        labelDiv.style.top = (labelY + (edge.offsetY || 0)) + 'px';
-                        labelDiv.innerHTML = formatHighlight(edge.label);
-                        targetArea.appendChild(labelDiv);
-                        makeDraggable(labelDiv, edge, 'edge');
-                    } else {
-                        labelDiv.className = "rs-edge-label";
-                        labelDiv.style.left = (labelX + (edge.offsetX || 0)) + 'px';
-                        labelDiv.style.top = (labelY + (edge.offsetY || 0)) + 'px';
-                        labelDiv.innerHTML = formatHighlight(edge.label);
-                        targetArea.appendChild(labelDiv);
-                    }
-                }
-            });
-        }
-
-        // Draggable Logic for Interactive Canvas
-        function makeDraggable(element, dataObj, type) {
-            let startX, startY, initialX, initialY;
-            
-            element.onmousedown = function(e) {
-                e.preventDefault();
-                startX = e.clientX;
-                startY = e.clientY;
-                initialX = dataObj.x || 0;
-                initialY = dataObj.y || 0;
-                
-                document.onmouseup = closeDragElement;
-                document.onmousemove = elementDrag;
-                element.style.zIndex = 40; 
-            };
-
-            function elementDrag(e) {
-                e.preventDefault();
-                
-                const transform = canvasWrapper.style.transform;
-                let scale = 1;
-                if (transform && transform.includes('scale')) {
-                    scale = parseFloat(transform.match(/scale\(([^)]+)\)/)[1]);
-                }
-
-                let dx = (e.clientX - startX) / scale;
-                let dy = (e.clientY - startY) / scale;
-                
-                if (type === 'node') {
-                    dataObj.x = initialX + dx;
-                    dataObj.y = initialY + dy;
-                    element.style.left = dataObj.x + 'px';
-                    element.style.top = dataObj.y + 'px';
-                } else if (type === 'edge') {
-                    dataObj.offsetX = (dataObj.offsetX || 0) + dx;
-                    dataObj.offsetY = (dataObj.offsetY || 0) + dy;
-                    initialX = dataObj.x; 
-                    initialY = dataObj.y;
-                    startX = e.clientX; 
-                    startY = e.clientY;
-                }
-                updateInteractivePositions();
-            }
-
-            function closeDragElement() {
-                document.onmouseup = null;
-                document.onmousemove = null;
-                element.style.zIndex = type === 'node' ? 20 : 30;
-            }
-        }
-
-        // Live update positions while dragging
-        function updateInteractivePositions() {
-            graphEdges.forEach(edge => {
-                const n1 = graphNodes.find(n => n.id === edge.from);
-                const n2 = graphNodes.find(n => n.id === edge.to);
-                if(!n1 || !n2) return;
-
-                const x1 = n1.x; const y1 = n1.y;
-                const x2 = n2.x; const y2 = n2.y;
-
-                const midX = (x1 + x2) / 2;
-                const midY = (y1 + y2) / 2;
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const len = Math.sqrt(dx*dx + dy*dy) || 1;
-                
-                const curveOffset = edge.curve || 0;
-                const nx = -dy / len;
-                const ny = dx / len;
-                
-                const cx = midX + nx * curveOffset;
-                const cy = midY + ny * curveOffset;
-
-                // 矩形邊界防覆蓋演算法 (Bounding Box Intersection)
-                const HW2 = getNodeRadius(n2);
-                const HH2 = 75; 
-                const dx2 = x2 - cx;
-                const dy2 = y2 - cy;
-                let scale2 = Math.min(HW2 / (Math.abs(dx2) || 1), HH2 / (Math.abs(dy2) || 1));
-                if (scale2 > 1) scale2 = 1;
-                const finalX2 = x2 - dx2 * scale2;
-                const finalY2 = y2 - dy2 * scale2;
-
-                const HW1 = getNodeRadius(n1);
-                const HH1 = 75;
-                const dx1 = x1 - cx;
-                const dy1 = y1 - cy;
-                let scale1 = Math.min(HW1 / (Math.abs(dx1) || 1), HH1 / (Math.abs(dy1) || 1));
-                if (scale1 > 1) scale1 = 1;
-                const finalX1 = x1 - dx1 * scale1;
-                const finalY1 = y1 - dy1 * scale1;
-
-                const path = document.getElementById(`line-${edge.id}`);
-                if (path) {
-                    path.setAttribute("d", `M ${finalX1} ${finalY1} Q ${cx} ${cy} ${finalX2} ${finalY2}`);
-                }
-
-                const label = document.getElementById(`label-${edge.id}`);
-                if (label) {
-                    const labelX = 0.25 * finalX1 + 0.5 * cx + 0.25 * finalX2;
-                    const labelY = 0.25 * finalY1 + 0.5 * cy + 0.25 * finalY2;
-
-                    label.style.left = (labelX + (edge.offsetX || 0)) + 'px';
-                    label.style.top = (labelY + (edge.offsetY || 0)) + 'px';
-                }
-            });
-        }
-
         btnGenerate.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) {
-                showError("單機版需要填寫您的 Gemini API Key 才能運行！");
-                apiKeyInput.focus();
-                return;
+            if (apiKey) {
+                localStorage.setItem('lexgraph_api_key', apiKey);
             }
-            // 儲存金鑰至本地瀏覽器
-            localStorage.setItem('lexgraph_api_key', apiKey);
 
             const text = legalInput.value.trim();
             if (!text) {
-                showError("請先輸入法律事實或問題！");
+                showError("請先輸入法律事實或考題！");
                 return;
             }
 
             hideError();
             btnGenerate.disabled = true;
-            btnGenerate.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 解析案情中...`;
+            btnGenerate.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 處理中...`;
             
             resultSection.classList.add('hidden');
             resultSection.classList.remove('flex');
@@ -770,40 +335,13 @@
             statusSection.classList.remove('hidden');
 
             try {
-                loadingText.textContent = "AI 正在解析案情與排版座標...";
-                const result = await fetchLegalAnalysis(text, apiKey);
+                loadingText.textContent = "AI 正在分析案情並萃取考點...";
                 
-                // --- 自動防重疊曲線分配演算法 (拉大間距以適應超大畫布) ---
-                const pairCounts = {};
-                result.edges.forEach(e => {
-                    const pairId = [e.from, e.to].sort().join('-');
-                    if (!pairCounts[pairId]) pairCounts[pairId] = [];
-                    pairCounts[pairId].push(e);
-                });
-                
-                Object.values(pairCounts).forEach(edges => {
-                    if (edges.length === 1) {
-                        if (edges[0].curve === undefined) edges[0].curve = 0;
-                    } else {
-                        // 若有多條線，強制分配不同的極大彎曲度，徹底避免重疊
-                        const offsets = [250, -250, 500, -500, 750, -750];
-                        edges.forEach((e, idx) => {
-                            let sign = (e.from > e.to) ? -1 : 1;
-                            e.curve = offsets[idx % offsets.length] * sign;
-                        });
-                    }
-                });
-                // ---------------------------------
+                const result = await fetchAnalysis(text, apiKey);
 
-                graphNodes = result.nodes.map(n => ({...n}));
-                graphEdges = result.edges.map((e, idx) => ({...e, id: e.id || `e${idx}`}));
-
-                uiTitle.textContent = result.title;
-                uiIssueTitle.innerHTML = `<i class="fa-solid fa-gavel"></i> ` + result.issue_title;
+                uiIssueTitle.innerHTML = result.issue_title;
                 uiIssueText.innerHTML = formatHighlight(result.issue_analysis);
                 uiConclusion.innerHTML = formatHighlight(result.conclusion);
-
-                renderGraphToTarget(drawArea, 'interactive-svg', true);
                 
                 loadingIndicator.classList.add('hidden');
                 loadingIndicator.classList.remove('flex');
@@ -811,51 +349,103 @@
                 
                 resultSection.classList.remove('hidden');
                 resultSection.classList.add('flex');
-                
-                // 動態取得全螢幕寬度並縮放滿版
-                setTimeout(scaleDiagram, 50);
 
             } catch (err) {
-                console.error(err);
-                showError("無法解析或排版失敗，請稍後再試。");
+                console.error("執行失敗：", err);
+                showError("生成失敗！若使用單機版請確認 API Key 是否填寫且有效。");
                 loadingIndicator.classList.add('hidden');
                 loadingIndicator.classList.remove('flex');
                 emptyState.classList.remove('hidden');
                 emptyState.classList.add('flex');
             } finally {
                 btnGenerate.disabled = false;
-                btnGenerate.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 渲染滿版大圖解`;
+                btnGenerate.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> 萃取考點並生成解析`;
             }
         });
 
-        btnDownload.addEventListener('click', async () => {
-            const btnOriginalText = btnDownload.innerHTML;
-            btnDownload.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 圖片儲存中...`;
-            btnDownload.disabled = true;
-
+        // ==========================================
+        // 核心功能：複製含格式文字 (Rich Text Copy)
+        // ==========================================
+        btnCopy.addEventListener('click', () => {
+            // 建立一個臨時容器來構造帶有 Inline-style 的 HTML
+            const tempDiv = document.createElement('div');
+            
+            // 將換行符號 \n 轉換為 <br> 以相容 Word / Notion，並保留原本轉換好的行內樣式 span
+            const issueTextHtml = uiIssueText.innerHTML.replace(/\n/g, '<br>');
+            const conclusionHtml = uiConclusion.innerHTML.replace(/\n/g, '<br>');
+            
+            // 將畫面上套用的樣式轉換為行內樣式，確保貼上時維持精美排版
+            tempDiv.innerHTML = `
+                <div style="font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; line-height: 1.8; color: #1e293b; max-width: 800px;">
+                    <h3 style="font-size: 20px; font-weight: bold; color: #064e3b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
+                        ${uiIssueTitle.innerText}
+                    </h3>
+                    <div style="font-size: 16px; margin-bottom: 24px;">
+                        ${issueTextHtml}
+                    </div>
+                    
+                    <h3 style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
+                        最終結論
+                    </h3>
+                    <div style="font-size: 16px; font-weight: bold; background-color: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        ${conclusionHtml}
+                    </div>
+                </div>
+            `;
+            
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            document.body.appendChild(tempDiv);
+            
+            // 選取該臨時容器的內容
+            const range = document.createRange();
+            range.selectNodeContents(tempDiv);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
             try {
-                rsTitle.textContent = uiTitle.textContent;
-                renderGraphToTarget(rsDiagram, 'export-svg', false);
-                await delay(300); 
-
-                const canvas = await html2canvas(renderStage, {
-                    scale: 2, 
-                    backgroundColor: '#ffffff',
-                    useCORS: true,
-                    logging: false
-                });
-
-                const link = document.createElement('a');
-                link.download = '法網_LexGraph_專業圖解.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+                // 執行複製
+                document.execCommand('copy');
+                showToast('已成功複製解析與結論（包含文字格式）');
             } catch (err) {
-                console.error("導出圖片失敗", err);
-                alert("圖片匯出失敗，請重試。");
-            } finally {
-                btnDownload.innerHTML = btnOriginalText;
-                btnDownload.disabled = false;
+                console.error('複製失敗', err);
+                showToast('複製失敗，請嘗試手動選取複製', true);
             }
+            
+            // 清理
+            selection.removeAllRanges();
+            document.body.removeChild(tempDiv);
+        });
+
+        // ==========================================
+        // 核心功能：列印考題與解析
+        // ==========================================
+        btnPrint.addEventListener('click', () => {
+            const printContainer = document.getElementById('print-container');
+            
+            // 構造專門用於列印的純淨排版
+            printContainer.innerHTML = `
+                <div style="font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; color: #000;">
+                    <h1 style="font-size: 28px; text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 10px; margin-bottom: 20px; font-weight: bold;">
+                        法律考點解析報告
+                    </h1>
+                    
+                    <h2 style="font-size: 20px; color: #047857; margin-bottom: 10px; font-weight: bold;">■ 考題事實</h2>
+                    <div style="font-size: 16px; line-height: 1.8; margin-bottom: 30px; white-space: pre-wrap; background-color: #f1f5f9; padding: 15px; border-left: 5px solid #059669;">${legalInput.value}</div>
+                    
+                    <h2 style="font-size: 20px; color: #047857; margin-bottom: 10px; font-weight: bold;">■ ${uiIssueTitle.innerText}</h2>
+                    <div style="font-size: 16px; line-height: 1.8; margin-bottom: 30px; white-space: pre-wrap;">${uiIssueText.innerHTML}</div>
+                    
+                    <h2 style="font-size: 20px; color: #0f172a; margin-bottom: 10px; font-weight: bold;">■ 最終結論</h2>
+                    <div style="font-size: 18px; line-height: 1.8; margin-bottom: 30px; white-space: pre-wrap; border: 2px solid #1e293b; padding: 15px; border-radius: 8px; font-weight: bold;">${uiConclusion.innerHTML}</div>
+                </div>
+            `;
+            
+            // 給予瀏覽器極短暫的時間來更新 DOM，隨後呼叫系統列印視窗
+            setTimeout(() => {
+                window.print();
+            }, 100);
         });
     </script>
 </body>
